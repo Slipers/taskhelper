@@ -2460,6 +2460,87 @@ html[data-theme='dark'] {
   color: var(--accent);
 }
 
+.focus-lock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  margin-left: auto;
+  margin-right: 8px;
+  border-radius: 13px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--danger);
+  background: var(--danger-soft);
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity 0.2s,
+    transform 0.2s var(--ease);
+  pointer-events: none;
+}
+
+.focus-lock.on {
+  opacity: 1;
+  transform: none;
+}
+
+.focus-lock svg,
+.focus-guard-hint svg {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.focus-guard-hint {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 460px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+}
+
+.app-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.app-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 4px 0 11px;
+  border-radius: 14px;
+  font-size: 12.5px;
+  font-weight: 550;
+  background: var(--accent-softer);
+  color: var(--accent);
+}
+
+.app-chip-del {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: inherit;
+}
+
+.app-chip-del:hover {
+  background: var(--accent-soft);
+}
+
+.app-chip-del svg {
+  width: 12px;
+  height: 12px;
+}
+
 .focus-body {
   flex: 1;
   min-height: 0;

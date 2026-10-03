@@ -70,6 +70,7 @@ export const ICONS = {
   ),
   move: wrap('<path d="M4 12h12.4M12.6 7.6 17 12l-4.4 4.4M20 5v14"/>'),
   edit: wrap('<path d="M4 20l1-4L16.6 4.4a2 2 0 0 1 2.8 0l.8.8a2 2 0 0 1 0 2.8L8.6 19.6z"/>'),
+  lock: wrap('<rect x="4.6" y="10.4" width="14.8" height="9.6" rx="2"/><path d="M8 10.4V7.6a4 4 0 0 1 8 0v2.8"/>'),
   bell: wrap('<path d="M6 16.4V11a6 6 0 1 1 12 0v5.4l1.6 2H4.4zM10 20.6a2.2 2.2 0 0 0 4 0"/>'),
 };
 

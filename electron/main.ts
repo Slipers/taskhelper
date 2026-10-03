@@ -15,6 +15,8 @@ import electronUpdaterPkg from 'electron-updater';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { FocusGuard } from './focus-guard.js';
 import { existsSync, readFileSync, writeFileSync, renameSync, mkdirSync } from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -453,6 +455,76 @@ ipcMain.on('theme:set', (_e, theme: 'light' | 'dark') => {
   mainWindow?.setBackgroundColor(theme === 'dark' ? '#101114' : '#f1f2f5');
 });
 
+/* ------------------------------------------------------ mode concentration */
+
+const SELF_NAME = path.basename(process.execPath, path.extname(process.execPath));
+
+const focusGuard = new FocusGuard(
+  path.join(__dirname, 'focus-guard.cs'),
+  { pid: process.pid, name: SELF_NAME },
+  {
+    onBlocked: (name, title) => {
+      // La garde a déjà tenté de ramener la fenêtre ; on assure le coup si elle était cachée.
+      if (mainWindow && (!mainWindow.isVisible() || mainWindow.isMinimized())) showWindow();
+      mainWindow?.webContents.send('focusGuard:blocked', { name, title });
+    },
+    onError: (message) => mainWindow?.webContents.send('focusGuard:error', message),
+  },
+);
+
+function selfHwnd(): string | null {
+  if (!mainWindow) return null;
+  const handle = mainWindow.getNativeWindowHandle();
+  return handle.length >= 8 ? handle.readBigUInt64LE(0).toString() : String(handle.readUInt32LE(0));
+}
+
+ipcMain.on('focusGuard:update', (_e, args: { active: boolean; allowed: string[] }) => {
+  focusGuard.update(args.active, args.allowed, selfHwnd());
+});
+
+ipcMain.on('focusGuard:end', () => focusGuard.end());
+
+/** Applications ouvertes avec une fenêtre, pour choisir lesquelles autoriser. */
+ipcMain.handle('apps:running', async () => {
+  if (process.platform !== 'win32') return [];
+  const script =
+    'Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } | ' +
+    'Select-Object ProcessName, Description | ConvertTo-Json -Compress';
+  const out = await new Promise<string>((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', script],
+      { windowsHide: true, timeout: 15_000, maxBuffer: 4 * 1024 * 1024 },
+      (_err, stdout) => resolve(stdout ?? ''),
+    );
+  });
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(out || '[]');
+  } catch {
+    return [];
+  }
+  const rows = (Array.isArray(parsed) ? parsed : [parsed]) as Array<{ ProcessName?: string; Description?: string }>;
+  const seen = new Map<string, { name: string; label: string }>();
+  for (const r of rows) {
+    const name = r.ProcessName?.trim();
+    if (!name || name.toLowerCase() === SELF_NAME.toLowerCase() || seen.has(name.toLowerCase())) continue;
+    seen.set(name.toLowerCase(), { name, label: r.Description?.trim() || name });
+  }
+  return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label, 'fr'));
+});
+
+ipcMain.handle('apps:pickExe', async () => {
+  const res = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Autoriser une application',
+    properties: ['openFile'],
+    filters: [{ name: 'Applications', extensions: ['exe'] }],
+  });
+  if (res.canceled || !res.filePaths[0]) return null;
+  const file = res.filePaths[0];
+  return { name: path.basename(file, path.extname(file)), label: path.basename(file, path.extname(file)) };
+});
+
 /* ----------------------------------------------------------------- boot */
 
 // Une seule instance : relancer l'app (raccourci, menu Démarrer) ramène la fenêtre existante.
@@ -495,6 +567,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
+    // Rouvre les fenêtres réduites par une séance de concentration en cours.
+    focusGuard.dispose();
   });
 
   app.on('window-all-closed', () => {

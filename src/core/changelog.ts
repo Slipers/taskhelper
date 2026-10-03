@@ -11,6 +11,15 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.1',
+    date: '2026-10-03',
+    items: [
+      'Le mode focus bloque toutes les autres applications pendant la concentration : elles sont réduites dès qu’elles s’ouvrent et TaskHelper revient devant',
+      'Applications autorisées réglables dans Réglages → Mode focus (Spotify autorisé par défaut)',
+      'Les fenêtres réduites sont rouvertes en quittant le mode focus',
+    ],
+  },
+  {
     version: '1.0',
     date: '2026-10-03',
     items: [

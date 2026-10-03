@@ -34,6 +34,18 @@ contextBridge.exposeInMainWorld('taskHelper', {
   showWindow: () => ipcRenderer.send('app:show'),
   onCommand: (handler) => subscribe('app:command', handler),
 
+  focusGuard: {
+    update: (args) => ipcRenderer.send('focusGuard:update', args),
+    end: () => ipcRenderer.send('focusGuard:end'),
+    onBlocked: (handler) => subscribe('focusGuard:blocked', handler),
+    onError: (handler) => subscribe('focusGuard:error', handler),
+  },
+
+  apps: {
+    running: () => ipcRenderer.invoke('apps:running'),
+    pickExe: () => ipcRenderer.invoke('apps:pickExe'),
+  },
+
   updater: {
     check: () => ipcRenderer.invoke('updater:check'),
     download: () => ipcRenderer.invoke('updater:download'),

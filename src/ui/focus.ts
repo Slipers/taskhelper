@@ -4,7 +4,8 @@ import { buildView } from '../core/views';
 import { toggleComplete } from './actions';
 import { clear, h, iconButton } from './dom';
 import { ICONS } from './icons';
-import { toast } from './modal';
+import { focusGuard } from '../io/storage';
+import { confirmDialog, isModalOpen, toast } from './modal';
 import { notify } from './reminders';
 import { playSound } from './sound';
 import { store } from './state';
@@ -25,6 +26,44 @@ let endsAt = 0;
 let timer = 0;
 let sessions = 0;
 let baseTitle = document.title;
+/** La garde a-t-elle réduit des fenêtres pendant cette séance ? Elles seront rouvertes à la sortie. */
+let guardUsed = false;
+let guardActive = false;
+
+/* ------------------------------------------------- blocage des applications */
+
+function guardWanted() {
+  return Boolean(focusGuard) && store.settings.blockApps && root !== null && running && phase === 'focus';
+}
+
+/**
+ * Concentration en cours = les autres applications sont réduites dès qu'elles
+ * apparaissent. En pause (minuteur arrêté ou pause entre deux sessions), on
+ * laisse faire ; les fenêtres reviennent toutes en quittant le mode focus.
+ */
+export function syncFocusGuard() {
+  if (!focusGuard) return;
+  const active = guardWanted();
+  if (active) guardUsed = true;
+  if (active || guardActive) focusGuard.update({ active, allowed: store.settings.allowedApps });
+  guardActive = active;
+  root?.querySelector('.focus-lock')?.classList.toggle('on', active);
+}
+
+function appLabel(name: string) {
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+let lastBlockToast = { name: '', at: 0 };
+focusGuard?.onBlocked(({ name }) => {
+  const now = Date.now();
+  if (lastBlockToast.name === name && now - lastBlockToast.at < 4000) return;
+  lastBlockToast = { name, at: now };
+  toast(`${appLabel(name)} est bloqué pendant la concentration`);
+});
+focusGuard?.onError((message) => {
+  toast(`Blocage des applications indisponible : ${message}`, undefined, 7000);
+});
 
 function queue(): Task[] {
   // Les tâches du jour, dans l'ordre où l'utilisateur les a rangées.
@@ -65,6 +104,7 @@ function finishPhase() {
   }
   remaining = phaseLength(phase);
   render();
+  syncFocusGuard();
 }
 
 function start() {
@@ -73,6 +113,7 @@ function start() {
   clearInterval(timer);
   timer = window.setInterval(tick, 250);
   render();
+  syncFocusGuard();
 }
 
 function pause() {
@@ -80,6 +121,7 @@ function pause() {
   clearInterval(timer);
   remaining = (endsAt - Date.now()) / 1000;
   render();
+  syncFocusGuard();
 }
 
 function updateClock() {
@@ -253,17 +295,26 @@ function render() {
         : null,
     ),
     upcoming.length ? h('p', { class: 'focus-next', text: `Ensuite : ${upcoming[0]!.title}` }) : null,
+    focusGuard && store.settings.blockApps && phase === 'focus' && !running
+      ? h('p', { class: 'focus-guard-hint', html: `${ICONS.lock}<span>${guardHint()}</span>` })
+      : null,
   ];
   body.append(...parts.filter((x): x is HTMLElement => x !== null));
   updateClock();
 }
 
+function guardHint() {
+  const allowed = store.settings.allowedApps.map(appLabel);
+  const tail = allowed.length ? ` Autorisé : ${allowed.join(', ')}.` : '';
+  return `Au démarrage, toutes les autres applications seront réduites jusqu’à la pause.${tail}`;
+}
+
 function onKey(e: KeyboardEvent) {
-  if (!root) return;
+  if (!root || isModalOpen()) return;
   if (e.key === 'Escape') {
     e.preventDefault();
     e.stopPropagation();
-    closeFocus();
+    void requestClose();
   } else if (e.key === ' ') {
     e.preventDefault();
     e.stopPropagation();
@@ -292,6 +343,7 @@ export function openFocus(id: ID | null) {
     return;
   }
   baseTitle = document.title;
+  guardUsed = false;
   phase = 'focus';
   remaining = phaseLength('focus');
   running = false;
@@ -302,7 +354,8 @@ export function openFocus(id: ID | null) {
       'div',
       { class: 'focus-top' },
       h('span', { class: 'focus-brand', html: `${ICONS.target}<span>Mode focus</span>` }),
-      iconButton(ICONS.close, 'Quitter le mode focus (Échap)', closeFocus),
+      h('span', { class: 'focus-lock', html: `${ICONS.lock}<span>Applications bloquées</span>` }),
+      iconButton(ICONS.close, 'Quitter le mode focus (Échap)', () => void requestClose()),
     ),
     h('div', { class: 'focus-body' }),
   );
@@ -312,11 +365,27 @@ export function openFocus(id: ID | null) {
   render();
 }
 
+/** Quitter pendant une concentration qui bloque les applications demande confirmation. */
+async function requestClose() {
+  if (guardActive) {
+    const ok = await confirmDialog(
+      'Arrêter la concentration ?',
+      'Le minuteur s’arrête et vos applications sont rouvertes.',
+      'Arrêter',
+    );
+    if (!ok) return;
+  }
+  closeFocus();
+}
+
 export function closeFocus() {
   if (!root) return;
   if (running) toast('Minuteur arrêté');
   running = false;
   clearInterval(timer);
+  syncFocusGuard();
+  if (guardUsed) focusGuard?.end();
+  guardUsed = false;
   document.removeEventListener('keydown', onKey, true);
   const el = root;
   root = null;

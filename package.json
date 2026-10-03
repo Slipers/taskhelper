@@ -1,7 +1,7 @@
 {
   "name": "taskhelper",
   "productName": "TaskHelper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Organiser sa journée simplement : tâches, sous-tâches, rappels et mode focus, local-first",
   "author": "pasca",
   "license": "MIT",

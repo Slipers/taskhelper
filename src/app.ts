@@ -16,7 +16,7 @@ import {
 } from './io/storage';
 import { mountDetail, refreshDetail } from './ui/detail';
 import { h, isTyping } from './ui/dom';
-import { closeFocus, isFocusOpen, openFocus, refreshFocus } from './ui/focus';
+import { closeFocus, isFocusOpen, openFocus, refreshFocus, syncFocusGuard } from './ui/focus';
 import { closeAllPopovers, hasOpenPopover } from './ui/menu';
 import { isModalOpen, toast } from './ui/modal';
 import { isPaletteOpen, openPalette } from './ui/palette';
@@ -179,6 +179,7 @@ async function boot() {
       syncBadge();
     } else if (kind === 'settings') {
       applyTheme();
+      syncFocusGuard();
       document.body.classList.toggle('sidebar-collapsed', store.settings.sidebarCollapsed);
       syncDesktop();
       if (store.settings.lastView !== lastView) {

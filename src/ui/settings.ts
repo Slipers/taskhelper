@@ -2,16 +2,20 @@ import type { AppSettings } from '../core/types';
 import { ACCENTS } from '../core/types';
 import {
   displayVersion,
+  focusGuard,
   getFullVersion,
   isDesktop,
   openTextFile,
+  pickAppExe,
   revealDataFolder,
+  runningApps,
   sanitizeData,
   saveTextFile,
   updater,
 } from '../io/storage';
 import { clear, h } from './dom';
 import { ICONS } from './icons';
+import { openMenu } from './menu';
 import { confirmDialog, showModal, toast } from './modal';
 import { ensurePermission } from './reminders';
 import { store } from './state';
@@ -161,6 +165,95 @@ function updateBlock() {
   return h('div', { class: 'update-row' }, btn, status);
 }
 
+const capitalize = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
+
+/** Applications qui restent utilisables pendant la concentration. */
+function allowedAppsField() {
+  const chips = h('div', { class: 'app-chips' });
+  const has = (name: string) => store.settings.allowedApps.some((a) => a.toLowerCase() === name.toLowerCase());
+  const add = (name: string) => {
+    if (!name || has(name)) return;
+    store.setSettings({ allowedApps: [...store.settings.allowedApps, name] });
+    paint();
+  };
+  const paint = () => {
+    clear(chips);
+    if (!store.settings.allowedApps.length)
+      chips.append(h('span', { class: 'field-hint', text: 'Aucune : seul TaskHelper reste ouvert.' }));
+    for (const name of store.settings.allowedApps) {
+      chips.append(
+        h(
+          'span',
+          { class: 'app-chip' },
+          h('span', { text: capitalize(name) }),
+          h('button', {
+            class: 'app-chip-del',
+            html: ICONS.close,
+            title: `Ne plus autoriser ${capitalize(name)}`,
+            on: {
+              click: () => {
+                store.setSettings({ allowedApps: store.settings.allowedApps.filter((a) => a !== name) });
+                paint();
+              },
+            },
+          }),
+        ),
+      );
+    }
+  };
+  paint();
+
+  const openBtn = h('button', {
+    class: 'btn small',
+    html: `${ICONS.plus}<span>Application ouverte…</span>`,
+    on: {
+      click: async () => {
+        openBtn.disabled = true;
+        const apps = await runningApps();
+        openBtn.disabled = false;
+        const candidates = apps.filter((a) => !has(a.name));
+        if (!candidates.length) {
+          toast('Aucune autre application ouverte à autoriser');
+          return;
+        }
+        openMenu(
+          openBtn,
+          candidates.map((a) => ({
+            label: a.label === a.name ? capitalize(a.name) : `${a.label} (${a.name})`,
+            run: () => add(a.name),
+          })),
+        );
+      },
+    },
+  });
+
+  return h(
+    'div',
+    { class: 'field' },
+    h('div', { class: 'field-head' }, h('label', { text: 'Applications autorisées' })),
+    chips,
+    h(
+      'div',
+      { class: 'button-row' },
+      openBtn,
+      h('button', {
+        class: 'btn small',
+        html: `${ICONS.folder}<span>Parcourir…</span>`,
+        on: {
+          click: async () => {
+            const app = await pickAppExe();
+            if (app) add(app.name);
+          },
+        },
+      }),
+    ),
+    h('p', {
+      class: 'field-hint',
+      text: 'La barre des tâches, le menu Démarrer et le Gestionnaire des tâches restent toujours accessibles.',
+    }),
+  );
+}
+
 export function openSettings() {
   const modal = showModal('Réglages', { subtitle: 'Tout est enregistré automatiquement.' });
   const s = store.settings;
@@ -237,6 +330,16 @@ export function openSettings() {
     section('Mode focus'),
     rangeField('Session de concentration', 'focusMinutes', 5, 90, 5, 'min'),
     rangeField('Pause', 'breakMinutes', 1, 30, 1, 'min'),
+    ...(focusGuard
+      ? [
+          switchRow(
+            'Bloquer les autres applications',
+            'Pendant la concentration, toute autre application est réduite dès qu’elle s’ouvre et TaskHelper revient devant. Les fenêtres sont rouvertes en quittant le mode focus.',
+            'blockApps',
+          ),
+          allowedAppsField(),
+        ]
+      : []),
 
     ...(isDesktop
       ? [

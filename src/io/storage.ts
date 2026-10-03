@@ -67,7 +67,23 @@ interface TaskHelperApi {
   setBadge(count: number, dataUrl: string | null): void;
   showWindow(): void;
   onCommand(handler: (command: string) => void): () => void;
+  focusGuard: {
+    update(args: { active: boolean; allowed: string[] }): void;
+    end(): void;
+    onBlocked(handler: (info: { name: string; title: string }) => void): () => void;
+    onError(handler: (message: string) => void): () => void;
+  };
+  apps: {
+    running(): Promise<AppInfo[]>;
+    pickExe(): Promise<AppInfo | null>;
+  };
   updater: UpdaterApi;
+}
+
+/** Application Windows identifiée par son nom de processus (sans .exe). */
+export interface AppInfo {
+  name: string;
+  label: string;
 }
 
 const api: TaskHelperApi | undefined = (window as unknown as { taskHelper?: TaskHelperApi }).taskHelper;
@@ -238,6 +254,22 @@ export function showWindow() {
 /** Commandes venues du processus principal : menu, raccourci global, icône de notification. */
 export function onAppCommand(handler: (command: string) => void): () => void {
   return api?.onCommand(handler) ?? (() => {});
+}
+
+/* ------------------------------------------------- mode concentration */
+
+/**
+ * Blocage des autres applications pendant la concentration. `null` hors
+ * d'Electron ou hors Windows : le mode focus fonctionne alors sans blocage.
+ */
+export const focusGuard = api && api.platform === 'win32' ? api.focusGuard : null;
+
+export async function runningApps(): Promise<AppInfo[]> {
+  return api ? api.apps.running() : [];
+}
+
+export async function pickAppExe(): Promise<AppInfo | null> {
+  return api ? api.apps.pickExe() : null;
 }
 
 /* -------------------------------------------------------- mise à jour */

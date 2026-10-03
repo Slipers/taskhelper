@@ -69,6 +69,10 @@ export interface AppSettings {
   dayCapacity: number;
   focusMinutes: number;
   breakMinutes: number;
+  /** Réduire toutes les autres applications pendant la concentration (Windows). */
+  blockApps: boolean;
+  /** Noms de processus autorisés pendant la concentration, sans .exe. */
+  allowedApps: string[];
   sounds: boolean;
   closeToTray: boolean;
   launchAtLogin: boolean;
@@ -96,6 +100,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   dayCapacity: 6,
   focusMinutes: 25,
   breakMinutes: 5,
+  blockApps: true,
+  allowedApps: ['Spotify'],
   sounds: true,
   closeToTray: false,
   launchAtLogin: false,

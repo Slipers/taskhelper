@@ -27,6 +27,7 @@ Google Tasks est volontairement minimal : pas de priorité, pas de durée, pas d
 - ✅ **Sous-tâches, notes, priorités, durées estimées**, et **tâches récurrentes** (tous les jours, en semaine, toutes les semaines, tous les mois…)
 - 🖱️ **Glisser-déposer** pour réordonner, changer de jour, de liste, ou terminer en déposant sur « Terminées »
 - 🎯 **Mode focus** : une seule tâche à l'écran, un minuteur de concentration avec pauses, et l'enchaînement direct vers la tâche suivante
+- 🔒 **Blocage des applications** : pendant la concentration, toute autre application est réduite dès qu'elle s'ouvre et TaskHelper revient devant. Seules les applications autorisées dans les Réglages restent utilisables (Spotify par défaut) ; la barre des tâches, le menu Démarrer et le Gestionnaire des tâches restent accessibles, et tout est rouvert en quittant le mode focus
 - 🔔 **Rappels** : une notification Windows à l'heure prévue, ou quelques minutes avant
 - 🔍 **Palette de commandes** (Ctrl+K) : chercher une tâche, aller à une liste, lancer une action, ou créer une tâche directement
 - ⌨️ **Tout au clavier** : N pour ajouter, flèches pour naviguer, Espace pour terminer, T/D/S pour planifier, 1/2/3 pour la priorité… (F1 pour la liste complète)
@@ -60,6 +61,8 @@ Vos tâches sont enregistrées dans `%APPDATA%\TaskHelper\data.json`, et les sau
 Ctrl+Entrée ajoute la tâche et ouvre directement son détail.
 
 ## Comment ça marche
+
+Le blocage des applications repose sur un petit programme C# (`electron/focus-guard.cs`) que Windows PowerShell compile à la volée, sans module natif : il surveille la fenêtre au premier plan, réduit celles des applications non autorisées et ramène TaskHelper devant. S'il perd le contact avec TaskHelper (fermeture, plantage), il rouvre les fenêtres et s'arrête de lui-même.
 
 L'interface est écrite en TypeScript sans framework, avec un store unique qui prend un instantané à chaque modification (toute action est donc annulable) et enregistre de façon différée, puis de façon synchrone à la fermeture. Les écritures sur disque sont atomiques (fichier temporaire puis renommage) : un arrêt brutal ne peut pas corrompre les tâches. Les lignes de la liste se réordonnent avec une animation FLIP, pour que rien ne « saute » à l'écran.
 
