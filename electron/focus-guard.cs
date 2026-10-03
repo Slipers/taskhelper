@@ -317,7 +317,8 @@ public static class FocusGuard
                 if (!active) continue;
                 IntPtr fg = GetAncestor(GetForegroundWindow(), GA_ROOTOWNER);
                 string blockedName, blockedTitle;
-                if (ShouldBlock(fg, out blockedName, out blockedTitle))
+                // Une fenêtre réduite peut rester « au premier plan » un instant : rien de plus à faire.
+                if (!IsIconic(fg) && ShouldBlock(fg, out blockedName, out blockedTitle))
                 {
                     Block(fg);
                     FocusSelf();
